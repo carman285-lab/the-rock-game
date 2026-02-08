@@ -54,3 +54,197 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 15px;
+        }
+
+        .group-card {
+            background: var(--card-bg); /* Usamos el fondo semitransparente */
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #444;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6); /* Sombra más fuerte */
+            backdrop-filter: blur(5px); /* Efecto de desenfoque detrás de las tarjetas (opcional, moderno) */
+        }
+
+        .group-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 12px;
+        }
+        .group-name { font-size: 1.2rem; font-weight: bold; color: var(--gold); }
+
+        .status-badge {
+            font-size: 0.7rem; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; font-weight: bold;
+        }
+        .status-risk { background: #c3073f; color: white; }
+        .status-hard { background: #28a745; color: white; }
+        .status-none { background: #666; }
+
+        .resource-row {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 0.8rem; margin-bottom: 12px;
+        }
+        .res-item {
+            background: rgba(20, 20, 25, 0.8); /* Fondo de items más oscuro */
+            padding: 6px; border-radius: 4px; text-align: center; border: 1px solid #444;
+        }
+        .res-val { display: block; font-size: 1rem; font-weight: bold; color: var(--xp-color); }
+        .debt-val { color: var(--accent); }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        button {
+            padding: 10px; font-size: 0.8rem; border: none; border-radius: 5px;
+            cursor: pointer; background: #3a3a42; color: white; font-weight: bold;
+            transition: 0.2s; touch-action: manipulation; border: 1px solid #555;
+        }
+        button:active { transform: scale(0.95); }
+        
+        .btn-xp { background: var(--xp-color); color: #000; border: none;}
+        .btn-exp { background: var(--gold); color: #000; grid-column: span 2; margin-top: 5px; border: none;}
+
+        .setup-actions { display: flex; flex-direction: column; gap: 8px; }
+        .btn-choose { background: rgba(68, 68, 68, 0.8); font-size: 0.9rem; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>THE ROCK</h1>
+    <div class="subtitle">Panel de Gestión de Gremios - Reino Mist</div>
+    
+    <div class="groups-grid" id="main-grid">
+        </div>
+</div>
+
+<script>
+    // LISTA DE GREMIOS
+    const GUILDS = [
+        "Woodmasters", "Blacksmiths", "Stonemasons", 
+        "Merchants", "Engineers", "Explorers"
+    ];
+
+    let groups = [];
+
+    // Inicializar datos (se borran al refrescar)
+    function initData() {
+        groups = GUILDS.map((name, index) => ({
+            id: index,
+            name: name,
+            role: null, // 'risk' o 'hard'
+            xp: 0, debt: 0, vp: 0,
+            knowledge: 0, gems: 0, wood: 0, iron: 0, stone: 0, gears: 0, paths: 0
+        }));
+        renderGroups();
+    }
+
+    // Dibujar la interfaz
+    function renderGroups() {
+        const grid = document.getElementById('main-grid');
+        grid.innerHTML = '';
+
+        groups.forEach(g => {
+            const card = document.createElement('div');
+            card.className = 'group-card';
+            
+            let statusText = g.role ? (g.role === 'risk' ? 'Risk Taker' : 'Hard Worker') : 'Sin Rol';
+            let statusClass = g.role ? (g.role === 'risk' ? 'status-risk' : 'status-hard') : 'status-none';
+
+            card.innerHTML = `
+                <div class="group-header">
+                    <span class="group-name">${g.name}</span>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                </div>
+
+                ${!g.role ? `
+                    <div class="setup-actions">
+                        <button class="btn-choose" onclick="setRole(${g.id}, 'risk')">Elegir CREDIT (Risk Taker +50XP)</button>
+                        <button class="btn-choose" onclick="setRole(${g.id}, 'hard')">Elegir DEBIT (Hard Worker)</button>
+                    </div>
+                ` : `
+                    <div class="resource-row">
+                        <div class="res-item">✨ XP <span class="res-val">${Math.floor(g.xp)}</span></div>
+                        <div class="res-item">🏆 VP <span class="res-val" style="color:var(--gold)">${g.vp}</span></div>
+                        <div class="res-item">⚠️ Deuda <span class="res-val debt-val">${Math.floor(g.debt)}</span></div>
+                        <div class="res-item">💎 Gems: ${g.gems}</div>
+                        <div class="res-item">📜 Knowl: ${g.knowledge}</div>
+                        <div class="res-item">🪵 Wood: ${g.wood}</div>
+                        <div class="res-item">⛏️ Iron: ${g.iron}</div>
+                        <div class="res-item">🪨 Stone: ${g.stone}</div>
+                        <div class="res-item">⚙️ Gears: ${g.gears}</div>
+                    </div>
+                    <div class="controls">
+                        <button class="btn-xp" onclick="addXP(${g.id}, 10)">+10 XP</button>
+                        <button class="btn-xp" style="background:#28a745" onclick="addXP(${g.id}, 5)">+5 XP</button>
+                        <button class="btn-token" onclick="openShop(${g.id})">Canjear (5 XP)</button>
+                        <button class="btn-token" onclick="addXP(${g.id}, 1)">+1 XP</button>
+                        <button class="btn-exp" onclick="doExpedition(${g.id})">Lanzar Expedición (2 XP, 2💎, 2📜)</button>
+                    </div>
+                `}
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    // Lógica del juego
+    function setRole(id, role) {
+        let g = groups[id];
+        g.role = role;
+        if (role === 'risk') {
+            g.xp = 50;
+            g.debt = 50;
+        }
+        renderGroups();
+    }
+
+    function addXP(id, amount) {
+        let g = groups[id];
+        if (g.role === 'risk' && g.debt > 0) {
+            let toDebt = amount * 0.5;
+            let toUser = amount - toDebt;
+            g.debt -= toDebt;
+            if (g.debt < 0) { toUser += Math.abs(g.debt); g.debt = 0; }
+            g.xp += toUser;
+        } else {
+            g.xp += amount;
+        }
+        renderGroups();
+    }
+
+    function openShop(id) {
+        let g = groups[id];
+        if (g.xp < 5) return alert("XP insuficiente para canjear tokens (Cost: 5 XP).");
+        
+        const menu = "Elige el número del token a canjear:\n1. 🪵 Wood\n2. ⛏️ Iron\n3. 🪨 Stone\n4. 💎 Gems\n5. 📜 Knowledge\n6. ⚙️ Gears\n7. 🛤️ Paths";
+        const choice = prompt(menu);
+        
+        let map = {"1":"wood", "2":"iron", "3":"stone", "4":"gems", "5":"knowledge", "6":"gears", "7":"paths"};
+        let token = map[choice];
+
+        if (token) {
+            g.xp -= 5;
+            g[token] += 1;
+            renderGroups();
+        } else if (choice !== null) { // Si no canceló, mostrar error
+            alert("Opción no válida. Ingresa un número del 1 al 7.");
+        }
+    }
+
+    function doExpedition(id) {
+        let g = groups[id];
+        if (g.xp >= 2 && g.gems >= 2 && g.knowledge >= 2) {
+            g.xp -= 2; g.gems -= 2; g.knowledge -= 2;
+            if (g.role === 'risk' && g.debt > 0) {
+                alert(`¡Expedición exitosa para ${g.name}!\nAVISO: Al tener DEUDA activa, NO suman Puntos de Victoria (VP).`);
+            } else {
+                g.vp += 5;
+                alert(`¡ENHORABUENA ${g.name}!\nHan logrado la Expedición y sumado +5 Victory Points.`);
+            }
+            renderGroups();
+        } else {
+            alert(`Recursos insuficientes para ${g.name}.\nSe requiere: 2 XP, 2 Gems y 2 Knowledge.`);
+        }
+    }
+
+    // Arrancar la app
+    initData();
+</script>
+</body>
+</html>
